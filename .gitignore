@@ -1,1 +1,7 @@
-/venv
+/server/venv
+/server/config/__pycache__
+/server/ServerSettings/__pycache__
+/server/server/__pycache__
+/server/server/hrv_process/__pycache__
+/server/server/sound_process/__pycache__
+/server/server/sound_process/keras_yamnet/__pycache__

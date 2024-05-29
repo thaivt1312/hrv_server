@@ -1,6 +1,0 @@
-django
-rest_framework
-numpy
-firebase-admin
-mysql
-tensorflow

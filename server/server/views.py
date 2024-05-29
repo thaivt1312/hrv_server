@@ -16,10 +16,6 @@ from .sound_process.index import load_sound_model, run_sound_predict
 threadArr = []
 run_load_model()
 load_sound_model()
-# hr_model3 = loadModel('server/hrv_process/models/model2.pickle')
-# sound_model1 = loadSoundModel('server/hrv_process/models/sound_model1.h5')
-# sound_model2 = loadSoundModel('server/hrv_process/models/sound_model2.h5')
-# checkDeviceId('1', '2')
 def loginProcess(index): 
     StartTime=time.time()
     def action():
@@ -43,9 +39,6 @@ class LoginApi(APIView):
     def post(self, request, *args, **kwargs):
         StartTime=time.time()
         index = len(threadArr) + 1
-        # def action():
-        #     print(index, 'action ! -> time : {:.1f}s'.format(time.time()-StartTime))
-        # run=setInterval(5, action)
         thread=threading.Thread(target=loginProcess, args=(len(threadArr) + 1,))
         thread.start()
         threadArr.append({
@@ -72,24 +65,10 @@ class TestAPI(APIView):
         response = {
             "abcde" : 123,
         }
-        # thread=threading.Thread(target=loginProcess)
-        # thread.start()
-        # threadArr.append({
-        #     'index': len(threadArr) + 1,
-        #     't': thread 
-        # })
         return Response(response, status=status.HTTP_200_OK)
 
     def post(self, request, *args, **kwargs):
         data = request.data
-        # response = "server received"
-        # print(data.get('file'))
-        # if data.get('file'):
-        #     print(request.FILES.get('file').name)
-        #     response = request.FILES.get('file').name
-        #     file = request.FILES.get('file')
-        #     file_name = default_storage.save(file.name, file)
-        # else:
         response = data
         
         return Response(response, status=status.HTTP_200_OK)
@@ -98,14 +77,6 @@ class HRVDataAPI(APIView):
     def post(self, request, *args, **kwargs):
         data = request.data
         saveHRData(data)
-        # response = "server received"
-        # print(data.get('file'))
-        # if data.get('file'):
-        #     print(request.FILES.get('file').name)
-        #     response = request.FILES.get('file').name
-        #     file = request.FILES.get('file')
-        #     file_name = default_storage.save(file.name, file)
-        # else:
         response = data
         
         return Response(response, status=status.HTTP_200_OK)

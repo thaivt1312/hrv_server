@@ -1,31 +1,11 @@
 # Real-Time Sound Event Detection
 
-This repository contains the python implementation of a Sound Event Detection system working in real time. 
-
-<img src="./demo.png" style="max-width:600px; width:100%">
-
-## Getting started
-
-Execute the following commands to setup you project.
-
-```bash 
-git clone https://github.com/robertanto/Real-Time-Sound-Event-Detection.git
-cd Real-Time-Sound-Event-Detection
-pip3 install -r requirements.txt
-```
-
-At this point you have only to execute the demo by running the following command:
-
-```bash 
-python3 ./sound_event_detection.py
-```
-
 ### Change the classes to detect
 
-To modify the classes to visualize in the plot, change the event's ids in the file `sound_event_detection.py` at the line 16:
+To modify the classes to predict, change the event's ids in the file `index.py` at the line 23:
 
 ```python
-plt_classes = [0,132,420,494] # Speech, Music, Explosion, Silence 
+plt_classes = [11, 19, 70, 421, 463] # Screaming/ Crying, sobbing/ Bark / Gunshot, gunfire / Smash, crash
 ```
 
 You can find the full list of 521 audio events in `keras_yamnet\yamnet_class_map.csv`. It follows the list of the first 50 audio events:

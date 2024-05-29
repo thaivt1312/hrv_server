@@ -3,13 +3,9 @@ import pickle
 from pathlib import Path
 from tensorflow.keras.models import load_model
 from kapre.time_frequency import STFT, Magnitude, ApplyFilterbank, MagnitudeToDecibel
-import transformers
-# from .MLModel.Model1.ML1 import build_model, run_predict
 
 StartTime=time.time()
 
-# def action() :
-#     print('action ! -> time : {:.1f}s'.format(time.time()-StartTime))
 def loadHRModel(filename):
 
     mypath = Path().absolute()
@@ -49,15 +45,3 @@ class setInterval :
 
     def cancel(self) :
         self.stopEvent.set()
-
-# start action every 0.6s
-# inter=setInterval(0.6,action)
-# print('just after setInterval -> time : {:.1f}s'.format(time.time()-StartTime))
-
-# # will stop interval in 5s
-# t=threading.Timer(5,inter.cancel)
-# t.start()
-
-# def run_model():
-    # hr_model1 = build_model()
-# def prepareDataModel1(rr):

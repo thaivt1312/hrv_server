@@ -1,10 +1,9 @@
 from config.db_connect import mydb
-import json
 import string
 import random
 from config.FCMManage import sendPush
 from .index import setInterval
-import time, threading
+import threading
 from datetime import datetime
 from .data_process import prepare_model_data, run_predict1, run_predict2, run_predict3, run_predict4
 import math
@@ -12,8 +11,8 @@ import math
 threadArr = []
 def runningHR(firebaseToken):
     def action():
-        sendPush('get', 'getRecord', [firebaseToken])
-        # sendPush('get', 'getHRData', [firebaseToken])
+        # sendPush('get', 'getRecord', [firebaseToken])
+        sendPush('get', 'getHRData', [firebaseToken])
     action()
     setInterval(30, action)
     
@@ -38,9 +37,6 @@ def id_generator(size=10, chars=string.digits):
 
 def checkDeviceId(deviceId,firebaseToken):
     thread=threading.Thread(target=runningHR, args=(firebaseToken,))
-    # thread.start()
-    # r = Timer(20, run())
-    # r.start()
     mycursor = mydb.cursor()
     query="SELECT * FROM device_manager WHERE device_id = %s AND id <> %s"
     params=(deviceId,0)

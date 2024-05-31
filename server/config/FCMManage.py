@@ -19,4 +19,4 @@ def sendPush(title, msg, registration_token):
     )
 
     response = messaging.send_multicast(message)
-    print(response)
+    print("Sent " + msg)

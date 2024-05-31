@@ -5,11 +5,11 @@ cd hrv_server
     This project is running with python 3.10, please upgrade or downgrade to 3.10 for best run
     a. Database
         This database will be run in mysql at localhost
-        Import hrv_server/db.sql to your local database
+        Import hrv_server/server/db.sql to your local database
         Open config/db_connect and replace with your host/port/user/password/database
     b.
         - Prepare the first running:
-            cd hrv_server 
+            cd server 
             python -m venv venv
             source venv/Scripts/activate
             pip install -r requirements.txt

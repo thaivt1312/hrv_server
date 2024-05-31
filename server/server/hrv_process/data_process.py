@@ -26,20 +26,6 @@ def run_load_model():
     hr_model5 = loadHRModel('server/hrv_process/models/knnpickel2')
     # hr_model6 = loadHRModel('server/hrv_process/models/ensemble_soft.pickle')
 
-    mypath = Path().absolute()
-    print(mypath/'server/data/test.csv')
-    dataset = pd.read_csv(mypath/'server/data/test.csv')
-    # data.iloc
-    x_test = dataset.iloc[0:7].values
-    print(x_test)
-    print(dataset.iloc[0:7])
-    # y_test = dataset.iloc[:, 1].values
-    # print([1, 2, 3, 4, 5])
-
-    z = np.array([[0.6176494009661164,0.4052242514800644,0.3926001234490023,0.5730021918594637,0.39547665912846175,0.19433557641807486,0.4470250629670924,0.4393939393939397]])
-    y = hr_model3.predict(z)
-    print(y[0])
-
 def get_mrr(rr):
     # '''rr: distance between peaks in ms'''
     return np.mean(rr)
@@ -107,13 +93,12 @@ def prepare_model_data(arr):
         prr20,
         prr50
     ]]
-    a=scaler.fit_transform(np.array(returnArr).reshape(-1, 1))
-    print(returnArr)
-    print(a)
-    print(np.array(a))
+    # a=scaler.fit_transform(np.array(returnArr).reshape(-1, 1))
+    # print(returnArr)
+    # print(a)
+    # print(np.array(a))
     # for x in returnArr:
     #     print(scaler.fit_transform(np.array(x).reshape(-1, 1)))
-    
     
     return np.array(returnArr)
     

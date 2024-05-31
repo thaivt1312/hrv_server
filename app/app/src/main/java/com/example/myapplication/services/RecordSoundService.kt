@@ -2,12 +2,12 @@ package com.example.myapplication.services
 
 import android.annotation.SuppressLint
 import android.content.Context
-import android.media.AudioManager
+import android.media.AudioFormat
+import android.media.AudioRecord
 import android.media.MediaRecorder
-import android.os.Build
-import android.os.PowerManager
+import android.os.Handler
+import android.os.Looper
 import android.util.Log
-import androidx.activity.ComponentActivity
 import androidx.work.Worker
 import androidx.work.WorkerParameters
 import com.example.myapplication.firebase.MyFirebaseInstanceIDService
@@ -19,71 +19,66 @@ import okhttp3.MultipartBody
 import okhttp3.RequestBody
 import okhttp3.RequestBody.Companion.asRequestBody
 import java.io.File
-import java.io.IOException
+import java.io.FileOutputStream
 
-class RecordSoundService(context: Context, params: WorkerParameters) : Worker(context, params),
-    MediaRecorder.OnInfoListener {
+class RecordSoundService(context: Context, params: WorkerParameters) : Worker(context, params) {
+
+    private lateinit var audioRecord: AudioRecord
+    private var isRecording = false
+    private val sampleRate = 16000
+    private val channelConfig = AudioFormat.CHANNEL_IN_MONO
+    private val audioFormat = AudioFormat.ENCODING_PCM_16BIT
+    private val bufferSize = AudioRecord.getMinBufferSize(sampleRate, channelConfig, audioFormat)
+    private val audioData = ByteArray(bufferSize)
 
     private val LOG_TAG = "AudioRecordTest"
-    private var fileName: String = ""
-    private var recorder: MediaRecorder? = null
-    var audioManager: AudioManager? = null
-    private lateinit var wakeLock: PowerManager.WakeLock
+    private val inputFile = "${applicationContext.externalCacheDir?.absolutePath}/audio.pcm"
+    private val outputFile = "${applicationContext.externalCacheDir?.absolutePath}/audio.wav"
 
-    private fun acquireWakeLock() {
-        val powerManager = applicationContext.getSystemService(Context.POWER_SERVICE) as PowerManager
-        wakeLock = powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "AudioRecord::WakeLock")
-        wakeLock.acquire(2*60*1000L /*2 minutes*/)
-    }
-
-    private fun releaseWakeLock() {
-        if (wakeLock.isHeld) {
-            wakeLock.release()
-        }
-    }
+    private val RECORD_TIME: Long = 10000
 
     override fun onStopped() {
         // Cleanup because you are being stopped.
         Log.d(LOG_TAG, "stop recording")
-        releaseWakeLock()
     }
 
     override fun doWork(): Result {
-        acquireWakeLock()
-        audioManager = applicationContext.getSystemService(ComponentActivity.AUDIO_SERVICE) as AudioManager
 
-        fileName = "${applicationContext.externalCacheDir?.absolutePath}/audiorecord.mp3"
-//        checkPlaySoundPermission()
         startRecording()
         return Result.success()
     }
 
+    @SuppressLint("MissingPermission")
     private fun startRecording() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            recorder = MediaRecorder(applicationContext).apply {
-                setAudioSource(MediaRecorder.AudioSource.MIC)
-                setOutputFormat(MediaRecorder.OutputFormat.MPEG_4)
-                setOutputFile(fileName)
-                setAudioEncoder(MediaRecorder.AudioEncoder.AAC)
-                setMaxDuration(10000)
+        audioRecord = AudioRecord(
+            MediaRecorder.AudioSource.MIC,
+            sampleRate,
+            channelConfig,
+            audioFormat,
+            bufferSize
+        )
 
-            }
-        }
-        recorder!!.setOnInfoListener { mr, what, extra ->
-            if (what == MediaRecorder.MEDIA_RECORDER_INFO_MAX_DURATION_REACHED) {
-//                recorder!!.stop()
-                stopRecording()
-            }
-        }
+        audioRecord.startRecording()
+        isRecording = true
 
-        try {
-            recorder!!.prepare()
-        } catch (e: IOException) {
-            Log.e(LOG_TAG, "prepare() failed")
-        }
+        val out = File(inputFile)
+        val outputStream = FileOutputStream(out)
 
         Log.d(LOG_TAG, "start recording...")
-        recorder!!.start()
+        Thread {
+            while (isRecording) {
+                val read = audioRecord.read(audioData, 0, bufferSize)
+                if (read > 0) {
+                    outputStream.write(audioData, 0, read)
+                }
+            }
+            outputStream.close()
+        }.start()
+
+        // Stop recording after 10 seconds
+        Handler(Looper.getMainLooper()).postDelayed({
+            stopRecording()
+        }, RECORD_TIME)
     }
 
     @SuppressLint("RestrictedApi")
@@ -100,12 +95,12 @@ class RecordSoundService(context: Context, params: WorkerParameters) : Worker(co
             Log.i("info message", "Making post api...")
 
             val gsonRequest = GSonRequest()
-            val file = File("${applicationContext.externalCacheDir?.absolutePath}/audiorecord.mp3")
+            val file = File(outputFile)
 //            val MEDIA_TYPE_MARKDOWN = "text/x-markdown; charset=utf-8".toMediaType()
             val requestBody: RequestBody = MultipartBody.Builder()
                 .setType(MultipartBody.FORM)
                 .addFormDataPart("file",
-                    "file.mp3",
+                    "file.wav",
                     file.asRequestBody("media/type".toMediaTypeOrNull())
                 )
                 .addFormDataPart("firebaseToken", token)
@@ -120,22 +115,75 @@ class RecordSoundService(context: Context, params: WorkerParameters) : Worker(co
 
     @SuppressLint("RestrictedApi")
     private fun stopRecording() {
-        Log.d(LOG_TAG, "stop recording...")
-
-        recorder?.apply {
-            stop()
-            release()
+        if (isRecording) {
+            Log.d(LOG_TAG, "stop recording...")
+            isRecording = false
+            audioRecord.stop()
+            audioRecord.release()
+            convertPcmToWav(File(inputFile), File(outputFile))
+            sendData()
         }
-        recorder = null
-        sendData()
     }
 
-    override fun onInfo(mr: MediaRecorder?, what: Int, extra: Int) {
-        if (what == MediaRecorder.MEDIA_RECORDER_INFO_MAX_DURATION_REACHED) {
-            //display in long period of time
-//            Toast.makeText(applicationContext, "End Recording", Toast.LENGTH_LONG).show()
-            stopRecording()
-        }
+    private fun convertPcmToWav(pcmFile: File, wavFile: File) {
+        val channels = 1
+        val bitDepth = 16
+        val byteRate = sampleRate * channels * bitDepth / 8
+        val pcmData = pcmFile.readBytes()
+
+        val wavHeader = ByteArray(44)
+        val totalDataLen = pcmData.size + 36
+        val totalAudioLen = pcmData.size
+
+        wavHeader[0] = 'R'.code.toByte()
+        wavHeader[1] = 'I'.code.toByte()
+        wavHeader[2] = 'F'.code.toByte()
+        wavHeader[3] = 'F'.code.toByte()
+        wavHeader[4] = (totalDataLen and 0xff).toByte()
+        wavHeader[5] = (totalDataLen shr 8 and 0xff).toByte()
+        wavHeader[6] = (totalDataLen shr 16 and 0xff).toByte()
+        wavHeader[7] = (totalDataLen shr 24 and 0xff).toByte()
+        wavHeader[8] = 'W'.code.toByte()
+        wavHeader[9] = 'A'.code.toByte()
+        wavHeader[10] = 'V'.code.toByte()
+        wavHeader[11] = 'E'.code.toByte()
+        wavHeader[12] = 'f'.code.toByte()
+        wavHeader[13] = 'm'.code.toByte()
+        wavHeader[14] = 't'.code.toByte()
+        wavHeader[15] = ' '.code.toByte()
+        wavHeader[16] = 16
+        wavHeader[17] = 0
+        wavHeader[18] = 0
+        wavHeader[19] = 0
+        wavHeader[20] = 1
+        wavHeader[21] = 0
+        wavHeader[22] = channels.toByte()
+        wavHeader[23] = 0
+        wavHeader[24] = (sampleRate and 0xff).toByte()
+        wavHeader[25] = (sampleRate shr 8 and 0xff).toByte()
+        wavHeader[26] = (sampleRate shr 16 and 0xff).toByte()
+        wavHeader[27] = (sampleRate shr 24 and 0xff).toByte()
+        wavHeader[28] = (byteRate and 0xff).toByte()
+        wavHeader[29] = (byteRate shr 8 and 0xff).toByte()
+        wavHeader[30] = (byteRate shr 16 and 0xff).toByte()
+        wavHeader[31] = (byteRate shr 24 and 0xff).toByte()
+        wavHeader[32] = (channels * bitDepth / 8).toByte()
+        wavHeader[33] = 0
+        wavHeader[34] = bitDepth.toByte()
+        wavHeader[35] = 0
+        wavHeader[36] = 'd'.code.toByte()
+        wavHeader[37] = 'a'.code.toByte()
+        wavHeader[38] = 't'.code.toByte()
+        wavHeader[39] = 'a'.code.toByte()
+        wavHeader[40] = (totalAudioLen and 0xff).toByte()
+        wavHeader[41] = (totalAudioLen shr 8 and 0xff).toByte()
+        wavHeader[42] = (totalAudioLen shr 16 and 0xff).toByte()
+        wavHeader[43] = (totalAudioLen shr 24 and 0xff).toByte()
+
+        val wavOutputStream = FileOutputStream(wavFile)
+        wavOutputStream.write(wavHeader)
+        wavOutputStream.write(pcmData)
+        wavOutputStream.close()
     }
 
 }

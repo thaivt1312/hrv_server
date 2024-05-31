@@ -9,12 +9,13 @@ from .data_process import prepare_model_data, run_predict1, run_predict2, run_pr
 import math
 
 threadArr = []
+intervalTime = 30
 def runningHR(firebaseToken):
     def action():
         # sendPush('get', 'getRecord', [firebaseToken])
         sendPush('get', 'getHRData', [firebaseToken])
     action()
-    setInterval(30, action)
+    run=setInterval(30, action)
     
 def getTableRowCount():
     mycursor = mydb.cursor()
@@ -36,7 +37,10 @@ def id_generator(size=10, chars=string.digits):
     return ''.join(random.choice(chars) for _ in range(size))
 
 def checkDeviceId(deviceId,firebaseToken):
-    thread=threading.Thread(target=runningHR, args=(firebaseToken,))
+    def action():
+        # sendPush('get', 'getRecord', [firebaseToken])
+        sendPush('get', 'getHRData', [firebaseToken])
+    # thread=threading.Thread(target=runningHR, args=(firebaseToken,))
     mycursor = mydb.cursor()
     query="SELECT * FROM device_manager WHERE device_id = %s AND id <> %s"
     params=(deviceId,0)
@@ -46,6 +50,7 @@ def checkDeviceId(deviceId,firebaseToken):
     # for x in res:
     #     print(x)
     # print(len(res))
+    print(threadArr)
     if len(res) == 0:
         print("run insert")
         passcode = id_generator(6)
@@ -54,10 +59,11 @@ def checkDeviceId(deviceId,firebaseToken):
         tableCount = getTableRowCount('device_manager') + 1
         query = """INSERT INTO device_manager (device_id, token, firebase_token, is_login, user_id) VALUES (%s, %s, %s, %s, %s)"""
         params=(deviceId, hashcode, firebaseToken, '0', tableCount)
-        thread.start()
+        # thread.start()
+        action()
         threadArr.append({
             'index': tableCount,
-            't': thread
+            't': setInterval(intervalTime, action)
         })
         mycursor.execute(query, params)
         mydb.commit()
@@ -71,22 +77,22 @@ def checkDeviceId(deviceId,firebaseToken):
         mydb.commit()
         get = getUserInfo(firebaseToken)
         userId = get["user_id"]
-        curThread = ''
+        # curThread = ''
+        curIndex = 0
+        check = False
         for x in threadArr:
             if x['index'] == int(userId):
-                curThread = x
+                check = True
                 break
-        print(curThread)
-        if curThread == '':
-            thread.start()
-            threadArr.append({
-                'index': int(userId),
-                't': thread
-            })
-        else:
-            curThread['t'].cancel()
-            thread.start()
-            curThread['t'] = thread
+            curIndex = curIndex + 1
+        if check:
+            # thread.start()
+            threadArr[curIndex]['t'].cancel()
+        action()
+        threadArr.append({
+            'index': int(userId),
+            't': setInterval(intervalTime, action)
+        })
         return "true"
     
 
@@ -101,11 +107,11 @@ def checklogin(passcode,deviceId):
     return hashcode
         
 def saveHRData(data):
-    print(data)
     hrdata = data.get('hrData')
     firebaseToken = data.get('firebaseToken')
     latitude = data.get('latitude')
     longitude = data.get('longitude')
+    print(hrdata, firebaseToken, latitude, longitude)
     
     get = getUserInfo(firebaseToken)
     deviceId = get["device_id"]
@@ -113,13 +119,19 @@ def saveHRData(data):
     avgHeartBeat = 0
     hrsum=0
     string = hrdata[1:len(hrdata)-1]
-    arr = string.split(", ")
-    for x in arr:
-        print(x)
-        print(float(x))
-        y = float(x)
-        hrsum += 60000.0 / y
-    avgHeartBeat = hrsum/len(arr)
+    if (len(string)):
+        # print(string)
+        arr = string.split(", ")
+        # print(arr)
+        for x in arr:
+            # print(x)
+            # print(float(x))
+            y = float(x)
+            hrsum += 60000.0 / y
+        avgHeartBeat = hrsum/len(arr)
+    else:
+        return
+        
     
     data = prepare_model_data(arr)
     # print(data)
@@ -138,7 +150,7 @@ def saveHRData(data):
         VALUES (%s, %s, %s, %s, %s, %s, %s, %s)"""
     params=(
         str(hrdata), 
-        deviceId, 
+        deviceId,
         userId, 
         datetime.now(), 
         avgHeartBeat,

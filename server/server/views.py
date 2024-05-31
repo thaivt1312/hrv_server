@@ -39,13 +39,17 @@ class LoginApi(APIView):
     def post(self, request, *args, **kwargs):
         StartTime=time.time()
         index = len(threadArr) + 1
-        thread=threading.Thread(target=loginProcess, args=(len(threadArr) + 1,))
-        thread.start()
+        def action():
+            print(index, 'action ! -> time : {:.1f}s'.format(time.time()-StartTime))
+        # action()
+        # run=setInterval(5, action)
+        # thread=threading.Thread(target=setInterval(5, action))
+        # thread.start()
         threadArr.append({
             'index': len(threadArr) + 1,
-            't': thread
+            't': setInterval(5, action)
         })
-        checklogin("", "")
+        # checklogin("", "")
         response = {
             "login": "started"
         }
@@ -54,6 +58,22 @@ class LoginApi(APIView):
 class LogoutApi(APIView):
     def post(self, request, *args, **kwargs):
         index = request.data
+        # curIndex = 0
+        # check = False
+        # for x in threadArr:
+        #     if x['index'] == int(index):
+        #         check = True
+        #         break
+        #     curIndex = curIndex + 1
+        print(index)
+        # if check:
+        #     threadArr[curIndex]['t'].cancel()
+            # thread.start()
+            # threadArr.append({
+            #     'index': int(userId),
+            #     't': thread
+            # })
+        print(threadArr[index])
         threadArr[index]['t'].cancel()
         response = "done"
         return Response(response, status=status.HTTP_200_OK)
@@ -92,7 +112,7 @@ class SoundDataAPI(APIView):
         file_name = default_storage.save(file.name, file)
         mypath = Path().absolute()
         print(mypath/file_name)
-        run_sound_predict(file)
+        run_sound_predict(mypath/file_name)
         # else:
         response = {
             "success": "true"

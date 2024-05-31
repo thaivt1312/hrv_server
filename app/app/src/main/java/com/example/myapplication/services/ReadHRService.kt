@@ -28,14 +28,13 @@ class ReadHRService(context: Context, params: WorkerParameters) : Worker(context
 //    private val BODY_SENSORS_PERMISSION_CODE = 1001
     private lateinit var sensorManager: SensorManager
     private var heartRateSensor: Sensor? = null
-    //    private var mheartRateSensorListener: SensorEventListener? = null
     private val mRRIntervals = mutableListOf<Double>()
     private val mRRIntervalsTime = mutableListOf<Long>()
     private var mStartTime: Long = 0
     private var intervalCount: Long = 0
     private var running: Long = 0L
 
-    private var RRIntervalNeed: Long = 60
+    private var RRIntervalNeed: Long = 10
     private var sensorType =
         Sensor.TYPE_HEART_RATE
 //        69682
@@ -68,10 +67,6 @@ class ReadHRService(context: Context, params: WorkerParameters) : Worker(context
 
     private fun startHeartRateMonitoring() {
         sensorManager = this.applicationContext.getSystemService(Context.SENSOR_SERVICE) as SensorManager
-        var sensorsList = sensorManager.getSensorList(Sensor.TYPE_ALL)
-        for (s in sensorsList) {
-            Log.d("Sensor Status:", s.toString())
-        }
         if (sensorManager.getDefaultSensor(sensorType) != null) {
             Log.d("Sensor Status:", "has heart beat sensor")
         } else {

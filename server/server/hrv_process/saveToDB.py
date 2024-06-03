@@ -56,7 +56,7 @@ def checkDeviceId(deviceId,firebaseToken):
         passcode = id_generator(6)
         # print(passcode)
         hashcode = hash(passcode) ^ hash(deviceId)
-        tableCount = getTableRowCount('device_manager') + 1
+        tableCount = getTableRowCount() + 1
         query = """INSERT INTO device_manager (device_id, token, firebase_token, is_login, user_id) VALUES (%s, %s, %s, %s, %s)"""
         params=(deviceId, hashcode, firebaseToken, '0', tableCount)
         # thread.start()
@@ -129,35 +129,48 @@ def saveHRData(data):
             y = float(x)
             hrsum += 60000.0 / y
         avgHeartBeat = hrsum/len(arr)
-    else:
-        return
+
+        data = prepare_model_data(arr)
+        # print(data)
+        res1 = run_predict1(data)
+        res2 = run_predict2(data)
+        res3 = run_predict3(data)
+        # res4 = run_predict4(data)
+        res = sum([res1, res2, res3]) / 3
+        print(res1, res2, res3, res)
+        if (res >= 1):
+            sendPush('get', 'getRecord', [firebaseToken])
         
+        mycursor = mydb.cursor()
+        query = """INSERT INTO hr_data 
+            (hr_data, device_id, user_id, time, avg_heartbeat, stress_level, latitude, longitude) 
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)"""
+        params=(
+            str(hrdata), 
+            deviceId,
+            userId, 
+            datetime.now(), 
+            avgHeartBeat,
+            math.floor(res),
+            float(latitude),
+            float(longitude)
+        )
+        mycursor.execute(query, params)
+        mydb.commit()
     
-    data = prepare_model_data(arr)
-    # print(data)
-    res1 = run_predict1(data)
-    res2 = run_predict2(data)
-    res3 = run_predict3(data)
-    # res4 = run_predict4(data)
-    res = sum([res1, res2, res3]) / 3
-    print(res1, res2, res3, res)
-    if (res > 1):
-        sendPush('get', 'getRecord', [firebaseToken])
-    
+def getLastestRecord(firebaseToken):
+    get = getUserInfo(firebaseToken)
+    userId = get["user_id"]
+    deviceId = get["device_id"]
     mycursor = mydb.cursor()
-    query = """INSERT INTO hr_data 
-        (hr_data, device_id, user_id, time, avg_heartbeat, stress_level, latitude, longitude) 
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s)"""
-    params=(
-        str(hrdata), 
-        deviceId,
-        userId, 
-        datetime.now(), 
-        avgHeartBeat,
-        math.floor(res),
-        float(latitude),
-        float(longitude)
-    )
-    mycursor.execute(query, params)
-    mydb.commit()
+    query=f"SELECT avg_heartbeat, time, stress_level, latitude, longitude, user_id FROM hr_data WHERE user_id = '{userId}' ORDER BY time DESC LIMIT 1 "
+    mycursor.execute(query)
+    res = mycursor.fetchone()
     
+    avg_heartbeat = res[0]
+    date_time = res[1].strftime("%d/%m/%Y, %H:%M:%S")
+    stress_level = res[2]
+    latitude = res[3]
+    longitude = res[4]
+    print(stress_level, avg_heartbeat, date_time, deviceId, userId, latitude, longitude)
+    return [avg_heartbeat, date_time, stress_level, latitude, longitude, deviceId, userId]

@@ -35,6 +35,7 @@ class ReadHRService(context: Context, params: WorkerParameters) : Worker(context
     private var running: Long = 0L
 
     private var RRIntervalNeed: Long = 10
+    private var TimeLimit: Long = 30
     private var sensorType =
         Sensor.TYPE_HEART_RATE
 //        69682
@@ -93,6 +94,10 @@ class ReadHRService(context: Context, params: WorkerParameters) : Worker(context
             val currentTimestamp = System.currentTimeMillis()
             val elapsedTime = currentTimestamp - mStartTime
             val heartRate = event.values[0]
+            if (elapsedTime / 1000 > TimeLimit) {
+                mStartTime = currentTimestamp
+                sendData()
+            }
             // Calculate R-R interval from heart rate (for demonstration purposes)
             if (intervalCount <= RRIntervalNeed) { // 1 minutes in milliseconds
                 val previousTimestamp: Long

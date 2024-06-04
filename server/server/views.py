@@ -153,7 +153,7 @@ class SoundDataAPI(APIView):
         else:
             prediction = "Stress level " + stress_level_str + ". No dangerous predicted in audio."
         healthData = {
-            "user_id": userId,
+            "user_id": "01hw37jjx5c74az9e786k50nvc",
             "stress_level": stress_level,
             "datetime": date_time,
             "latitude": latitude,
@@ -161,12 +161,13 @@ class SoundDataAPI(APIView):
             "average_heart_rate": avg_heartbeat,
             "device_id": deviceId,
             "prediction": prediction,
-            # "step_count": 0,
+            "step_count": 0,
         }
         print(prediction)
         print(healthData)
         mobileResponse = requests.post('http://222.252.10.203:32311/v1/stressdata', data = healthData)
-        print(mobileResponse)
+        # print(mobileResponse)
+        print (mobileResponse.content)
         # mobileResponse.text
         response = {
             "success": "true"

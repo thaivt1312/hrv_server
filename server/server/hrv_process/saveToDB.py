@@ -168,7 +168,7 @@ def getLastestRecord(firebaseToken):
     res = mycursor.fetchone()
     
     avg_heartbeat = res[0]
-    date_time = res[1].strftime("%d/%m/%Y, %H:%M:%S")
+    date_time = res[1].strftime("%Y-%m-%d %H:%M:%S")
     stress_level = res[2]
     latitude = res[3]
     longitude = res[4]

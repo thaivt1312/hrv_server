@@ -27,13 +27,9 @@ DROP TABLE IF EXISTS `device_manager`;
 CREATE TABLE `device_manager` (
   `id` int NOT NULL AUTO_INCREMENT,
   `device_id` varchar(50) NOT NULL DEFAULT '""',
-  `login_time` datetime DEFAULT NULL,
-  `token` varchar(50) DEFAULT NULL,
   `firebase_token` text,
-  `user_id` int DEFAULT NULL,
-  `is_login` tinyint DEFAULT NULL,
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB AUTO_INCREMENT=4 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=7 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -45,16 +41,17 @@ DROP TABLE IF EXISTS `hr_data`;
 /*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `hr_data` (
   `id` int NOT NULL AUTO_INCREMENT,
+  `user_id` int DEFAULT NULL,
+  `device_id` varchar(50) DEFAULT NULL,
   `hr_data` text,
   `avg_heartbeat` double DEFAULT NULL,
-  `time` datetime DEFAULT NULL,
-  `device_id` varchar(50) DEFAULT NULL,
-  `user_id` int DEFAULT NULL,
   `stress_level` smallint DEFAULT '0',
+  `prediction` varchar(255) DEFAULT 'No problem detected',
   `latitude` double DEFAULT '0',
   `longitude` double DEFAULT '0',
+  `time` datetime DEFAULT NULL,
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB AUTO_INCREMENT=114 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=377 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 /*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;
 
@@ -66,4 +63,4 @@ CREATE TABLE `hr_data` (
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2024-05-30  0:17:12
+-- Dump completed on 2024-06-21  2:27:14

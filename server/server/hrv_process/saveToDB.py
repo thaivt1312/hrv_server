@@ -1,150 +1,156 @@
-from config.db_connect import mydb
-import string
-import random
 from config.FCMManage import sendPush
 from .index import setInterval
-import threading
-from datetime import datetime
+
+from datetime import datetime, timedelta
 from .data_process import prepare_model_data, run_predict1, run_predict2, run_predict3, run_predict4
+from .index import send_to_stresswatch2, send_to_stresswatch3
+from ..data_db_process.get_data import getDeviceInfo, getUserInfo, getLastestRecord
+from ..data_db_process.save_data import insertNewUser, updateFirebaseToken, saveHeartRateData
 import math
 
 threadArr = []
-intervalTime = 30
-def runningHR(firebaseToken):
-    def action():
-        # sendPush('get', 'getRecord', [firebaseToken])
-        sendPush('get', 'getHRData', [firebaseToken])
-    action()
-    run=setInterval(30, action)
-    
-def getTableRowCount():
-    mycursor = mydb.cursor()
-    query="SELECT COUNT(*) FROM device_manager"
-    mycursor.execute(query)
-    res = mycursor.fetchall()
-    return len(res)
+intervalTime = 50
 
-def getUserInfo(firebaseToken):
-    mycursor = mydb.cursor(dictionary=True)
-    query="SELECT device_id, user_id FROM device_manager WHERE firebase_token = %s AND id <> %s"
-    params=(firebaseToken,0)
-    mycursor.execute(query, params)
+def findThreadIndex(userId):
+    curIndex = 0
+    check = False
+    for x in threadArr:
+        if x['index'] == int(userId):
+            check = True
+            break
+        curIndex = curIndex + 1
+    return [curIndex, check]
+def stopInterval(userId):
+    (curIndex, check) = findThreadIndex(userId)
+    if check:
+        threadArr[curIndex]['t'].cancel()
+    return (curIndex, check)
     
-    res = mycursor.fetchone()
-    return res
-        
-def id_generator(size=10, chars=string.digits):
-    return ''.join(random.choice(chars) for _ in range(size))
-
 def checkDeviceId(deviceId,firebaseToken):
     def action():
-        # sendPush('get', 'getRecord', [firebaseToken])
+        record = getLastestRecord(firebaseToken)
+        if len(record) > 0:
+    
+            avg_heartbeat = record[0]
+            date_time = record[1]
+            stress_level = record[2]
+            latitude = record[3]
+            longitude = record[4]
+            deviceId = record[5]
+            prediction = record[7]
+            date_time1 = datetime.strptime(record[1], "%Y-%m-%d %H:%M:%S")
+            userId = record[6]
+            (curIndex, check) = findThreadIndex(userId)
+            if check:
+                if threadArr[curIndex]['isNew'] == False:
+                    if abs(datetime.now() - date_time1) > timedelta(minutes=2):
+                        stopInterval(userId)
+            
+                        healthData2 = {
+                            "user_id": "01hw37jjx5c74az9e786k50nvc",
+                            "stress_level": stress_level,
+                            "datetime": date_time,
+                            "latitude": latitude,
+                            "longitude": longitude,
+                            "average_heart_rate": avg_heartbeat,
+                            "device_id": deviceId,
+                            "prediction": "Smart watch has been disconnected, last prection is: " + prediction,
+                            "step_count": 0,
+                        }
+            
+                        healthData3 = {
+                            "client_secret": "N1rB1JetZs9IEzP",
+                            "grant_type": "password",
+                            "client_id": "stress_watch_1_test",
+                            "smartWatchId": deviceId,
+                            "stressLevel": stress_level,
+                            "datetime": date_time,
+                            "latitude": latitude,
+                            "longitude": longitude,
+                            "averageHeartRate": avg_heartbeat,
+                            "prediction": "Smart watch has been disconnected, last prection is: " + prediction,
+                            "stepCount": 0,
+                            "soundFile": 'No file available',
+                        }
+                        send_to_stresswatch2(healthData2)
+                        send_to_stresswatch3(healthData3)
+                        return
         sendPush('get', 'getHRData', [firebaseToken])
-    # thread=threading.Thread(target=runningHR, args=(firebaseToken,))
-    mycursor = mydb.cursor()
-    query="SELECT * FROM device_manager WHERE device_id = %s AND id <> %s"
-    params=(deviceId,0)
-    mycursor.execute(query, params)
-    # print(mycursor.statement)
-    res = mycursor.fetchall()
-    # for x in res:
-    #     print(x)
-    # print(len(res))
-    print(threadArr)
+    
+    res = getDeviceInfo(deviceId)
+    
     if len(res) == 0:
-        print("run insert")
-        passcode = id_generator(6)
-        # print(passcode)
-        hashcode = hash(passcode) ^ hash(deviceId)
-        tableCount = getTableRowCount() + 1
-        query = """INSERT INTO device_manager (device_id, token, firebase_token, is_login, user_id) VALUES (%s, %s, %s, %s, %s)"""
-        params=(deviceId, hashcode, firebaseToken, '0', tableCount)
-        # thread.start()
+        insertNewUser(deviceId, firebaseToken)
+        print("\nInsert new user success\n")
+        get = getUserInfo(firebaseToken)
+        newUserId = get[1]
         action()
         threadArr.append({
-            'index': tableCount,
+            'index': newUserId,
+            'isNew': True,
             't': setInterval(intervalTime, action)
         })
-        mycursor.execute(query, params)
-        mydb.commit()
         return "false"
     else:
-        print("run update")
-        # hashcode = hash(passcode) ^ hash(deviceId)
-        query = """UPDATE device_manager SET firebase_token=%s WHERE device_id=%s AND id <> 0"""
-        params=(firebaseToken, deviceId)
-        mycursor.execute(query, [firebaseToken, deviceId])
-        mydb.commit()
+        updateFirebaseToken(deviceId, firebaseToken)
+        print("\nUpdate firebase token success\n")
         get = getUserInfo(firebaseToken)
-        userId = get["user_id"]
-        # curThread = ''
-        curIndex = 0
-        check = False
-        for x in threadArr:
-            if x['index'] == int(userId):
-                check = True
-                break
-            curIndex = curIndex + 1
-        if check:
-            # thread.start()
-            threadArr[curIndex]['t'].cancel()
+        userId = get[1]
+        (curIndex, check) = stopInterval(userId)
         action()
-        threadArr.append({
-            'index': int(userId),
-            't': setInterval(intervalTime, action)
-        })
+        if check:
+            threadArr[curIndex] = {
+                'index': int(userId),
+                'isNew': True,
+                't': setInterval(intervalTime, action)
+            }
+        else: 
+            threadArr.append({
+                'index': int(userId),
+                'isNew': True,
+                't': setInterval(intervalTime, action)
+            })
         return "true"
-    
-
-def checklogin(passcode,deviceId):
-    mycursor = mydb.cursor()
-    hashcode = hash(passcode) ^ hash(deviceId)
-    query=f"SELECT device_id, token, firebase_token FROM device_manager WHERE token = '{hashcode}'"
-    mycursor.execute(query)
-    res = mycursor.fetchall()
-    for x in res:
-        print(x)
-    return hashcode
         
 def saveHRData(data):
     hrdata = data.get('hrData')
     firebaseToken = data.get('firebaseToken')
     latitude = data.get('latitude')
     longitude = data.get('longitude')
-    print(hrdata, firebaseToken, latitude, longitude)
     
     get = getUserInfo(firebaseToken)
-    deviceId = get["device_id"]
-    userId = get["user_id"]
+    deviceId = get[0]
+    userId = get[1]
     avgHeartBeat = 0
-    hrsum=0
+    hrsum = 0
     string = hrdata[1:len(hrdata)-1]
     if (len(string)):
-        # print(string)
         arr = string.split(", ")
-        # print(arr)
         for x in arr:
-            # print(x)
-            # print(float(x))
             y = float(x)
             hrsum += 60000.0 / y
         avgHeartBeat = hrsum/len(arr)
 
         data = prepare_model_data(arr)
-        # print(data)
+        
         res1 = run_predict1(data)
         res2 = run_predict2(data)
         res3 = run_predict3(data)
         # res4 = run_predict4(data)
         res = sum([res1, res2, res3]) / 3
-        print(res1, res2, res3, res)
+        print('\n', res1, res2, res3, res, '\n')
         if (res >= 1):
             sendPush('get', 'getRecord', [firebaseToken])
-        
-        mycursor = mydb.cursor()
-        query = """INSERT INTO hr_data 
-            (hr_data, device_id, user_id, time, avg_heartbeat, stress_level, latitude, longitude) 
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)"""
+            
+        stress_level = math.floor(res)
+        stress_level_str = ''
+        if stress_level == 3:
+            stress_level_str = "High"
+        elif stress_level > 2:
+            stress_level_str = "Medium"
+        elif stress_level >= 1:
+            stress_level_str = "Low"
+        prediction = "Stress level " + str(stress_level_str) + ", average heart beat is " + str(avgHeartBeat) + "."
         params=(
             str(hrdata), 
             deviceId,
@@ -153,24 +159,10 @@ def saveHRData(data):
             avgHeartBeat,
             math.floor(res),
             float(latitude),
-            float(longitude)
+            float(longitude),
+            prediction
         )
-        mycursor.execute(query, params)
-        mydb.commit()
-    
-def getLastestRecord(firebaseToken):
-    get = getUserInfo(firebaseToken)
-    userId = get["user_id"]
-    deviceId = get["device_id"]
-    mycursor = mydb.cursor()
-    query=f"SELECT avg_heartbeat, time, stress_level, latitude, longitude, user_id FROM hr_data WHERE user_id = '{userId}' ORDER BY time DESC LIMIT 1 "
-    mycursor.execute(query)
-    res = mycursor.fetchone()
-    
-    avg_heartbeat = res[0]
-    date_time = res[1].strftime("%Y-%m-%d %H:%M:%S")
-    stress_level = res[2]
-    latitude = res[3]
-    longitude = res[4]
-    print(stress_level, avg_heartbeat, date_time, deviceId, userId, latitude, longitude)
-    return [avg_heartbeat, date_time, stress_level, latitude, longitude, deviceId, userId]
+        saveHeartRateData(params)
+        (curIndex, check) = findThreadIndex(userId)
+        if check:
+            threadArr[curIndex]['isNew'] = False

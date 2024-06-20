@@ -1,12 +1,12 @@
 import librosa
-import io
-from pydub import AudioSegment
-import os
 import numpy as np
 from .keras_yamnet import params
 from .keras_yamnet.yamnet import YAMNet, class_names
 from .keras_yamnet.preprocessing import preprocess_input
 from pathlib import Path
+
+from ..data_db_process.get_data import getLastestRecord
+from ..data_db_process.save_data import updatePrediction
 
 global sound_model
 
@@ -16,52 +16,63 @@ def load_sound_model():
     sound_model = YAMNet(weights=mypath/'server/sound_process/keras_yamnet/yamnet.h5')
     # run_sound_predict(mypath/'file.wav')
 
-def run_sound_predict(file):
+def run_sound_predict(file, firebaseToken):
     RATE = params.SAMPLE_RATE
     WIN_SIZE_SEC = 0.975
     CHUNK = int(WIN_SIZE_SEC * RATE)
+    
     plt_classes = [10, 11, 19, 20, 68, 69, 70, 81, 103, 292, 304, 316, 317, 318, 319, 393, 394, 420, 421, 422, 463, 464]
+    # print(plt_classes)
     mypath = Path().absolute()
     yamnet_classes = class_names(mypath/'server/sound_process/keras_yamnet/yamnet_class_map.csv')
  
     # file = 'test4.mp3'
-    print(file)
-    
-    # if os.path.isfile(file):
     y, sr = librosa.load(file, sr=None)
-    print("File loaded successfully")
+    print("\nFile loaded successfully\n")
     frames = librosa.util.frame(y, frame_length=CHUNK, hop_length=CHUNK)
     frames = frames.T  # Chuyển vị ma trận
 
     predictions = []
     # Chia dữ liệu âm thanh thành các khung có kích thước phù hợp
-    print(plt_classes)
     for frame in frames:
         data = preprocess_input(frame, sr)
         prediction = sound_model.predict(np.expand_dims(data, 0))[0]
         # get the highest probability class and its name
         prediction = np.argmax(prediction)
-        print(prediction, prediction in plt_classes)
         check = prediction in plt_classes
         if check == True:
-            print('Has ' + yamnet_classes[prediction] + ' sound')
             predictions.append(yamnet_classes[prediction])
-        # print(prediction)
-        # prediction = yamnet_classes[prediction]
 
-    # predictions = np.array(predictions)
-    print(predictions)
-    return predictions
-    # try:
-        # Load the audio file
-        # audio = AudioSegment.from_file(io.BytesIO(file.read()), format="mp3")
+    print('\n', predictions, '\n')
+    # return predictions
+    soundArr = list(set(predictions))
+    
+    soundStr = ""
+    index = 0
+    for ele in soundArr:
+        if index == len(soundArr) - 1:
+            soundStr += ele
+        else:
+            soundStr += ele + ', '
+        index = index + 1
+    
+    record = getLastestRecord(firebaseToken)
+    
+    avg_heartbeat = record[0]
+    date_time = record[1]
+    stress_level = record[2]
+    latitude = record[3]
+    longitude = record[4]
+    deviceId = record[5]
+    userId = record[6]
+    prediction = record[7]
+    recordId = record[8]
+        
+    if len(soundStr) > 0:
+        prediction = prediction + " In audio has: " + soundStr + '.'
+    else:
+        prediction = prediction + " No dangerous predicted in audio."
 
-        # Export the audio to a file-like object in WAV format
-        # wav_io = io.BytesIO()
-        # audio.export(wav_io, format="wav")
-        # wav_io.seek(0)  # Seek to the start so librosa can read it
-    # except Exception as e:
-    #     print(f"An error occurred: {e}")
-    # else:
-    #     print("File does not exist at the specified path")
- 
+    updatePrediction(recordId, prediction)
+    
+    return [avg_heartbeat, date_time, stress_level, latitude, longitude, deviceId, prediction]

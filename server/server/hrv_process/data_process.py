@@ -1,10 +1,7 @@
 import numpy as np
-from pathlib import Path
-import pandas as pd
 
-from .index import setInterval, loadHRModel, loadSoundModel
+from .index import loadHRModel
 from sklearn.preprocessing import MinMaxScaler
-# from .hrv_process.saveToDB import checklogin, checkDeviceId, saveHRData
 scaler = MinMaxScaler()
 
 global hr_model1, hr_model2, hr_model3, hr_model4, hr_model5, hr_model6
@@ -63,17 +60,11 @@ def get_prr50(rr):
         if arr_i > 50:
             count += 1 
     return count*100.0 / (np.size(rr)-1)
-
-def prepare_model1_data(rr):
-    print(rr)
-
-def preprae_model2_data(rr):
-    print(rr)
     
 def prepare_model_data(arr):
     brr = convert_strings_to_floats(arr)
     rr = np.array(brr)
-    print(rr)
+    # print(rr)
     mrr=get_mrr(rr)
     mhr=get_mhr(rr)
     sdrr=get_sdrr(rr, mrr)
@@ -93,12 +84,6 @@ def prepare_model_data(arr):
         prr20,
         prr50
     ]]
-    # a=scaler.fit_transform(np.array(returnArr).reshape(-1, 1))
-    # print(returnArr)
-    # print(a)
-    # print(np.array(a))
-    # for x in returnArr:
-    #     print(scaler.fit_transform(np.array(x).reshape(-1, 1)))
     
     return np.array(returnArr)
     

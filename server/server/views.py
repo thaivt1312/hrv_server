@@ -5,11 +5,8 @@ from django.core.files.storage import default_storage
 from pathlib import Path
 import os
 
-import requests
-import time, threading
-
-from .hrv_process.index import setInterval
-from .hrv_process.saveToDB import checklogin, checkDeviceId, saveHRData, getLastestRecord
+from .hrv_process.index import send_to_stresswatch2, send_to_stresswatch3
+from .hrv_process.saveToDB import checkDeviceId, saveHRData
 from .hrv_process.data_process import run_load_model
 
 from .sound_process.index import load_sound_model, run_sound_predict
@@ -18,12 +15,8 @@ from .sound_process.index import load_sound_model, run_sound_predict
 threadArr = []
 run_load_model()
 load_sound_model()
-def loginProcess(index): 
-    StartTime=time.time()
-    def action():
-        print(index, 'action ! -> time : {:.1f}s'.format(time.time()-StartTime))
-    action()
-    run=setInterval(5, action)
+    
+# send_to_stresswatch3()
 
 class checkDevice(APIView):
     def post(self, request, *args, **kwargs):
@@ -34,26 +27,6 @@ class checkDevice(APIView):
         
         response = {
             'login' : check,
-        }
-        return Response(response, status=status.HTTP_200_OK)
-
-class LoginApi(APIView):
-    def post(self, request, *args, **kwargs):
-        StartTime=time.time()
-        index = len(threadArr) + 1
-        def action():
-            print(index, 'action ! -> time : {:.1f}s'.format(time.time()-StartTime))
-        # action()
-        # run=setInterval(5, action)
-        # thread=threading.Thread(target=setInterval(5, action))
-        # thread.start()
-        threadArr.append({
-            'index': len(threadArr) + 1,
-            't': setInterval(5, action)
-        })
-        # checklogin("", "")
-        response = {
-            "login": "started"
         }
         return Response(response, status=status.HTTP_200_OK)
 
@@ -79,21 +52,6 @@ class LogoutApi(APIView):
         threadArr[index]['t'].cancel()
         response = "done"
         return Response(response, status=status.HTTP_200_OK)
-
-
-class TestAPI(APIView):
-    
-    def get(self, request, *args, **kwargs):
-        response = {
-            "abcde" : 123,
-        }
-        return Response(response, status=status.HTTP_200_OK)
-
-    def post(self, request, *args, **kwargs):
-        data = request.data
-        response = data
-        
-        return Response(response, status=status.HTTP_200_OK)
     
 class HRVDataAPI(APIView):
     def post(self, request, *args, **kwargs):
@@ -107,30 +65,16 @@ class SoundDataAPI(APIView):
     def post(self, request, *args, **kwargs):
         data = request.data
         # response = "server received"
-        print(data.get('file'))
+        # print(data.get('file'))
         # print(request.FILES.get('file').name)
         response = request.FILES.get('file').name
         file = request.FILES.get('file')
         file_name = default_storage.save(file.name, file)
         mypath = Path().absolute()
-        print(mypath/file_name)
+        print('\n', mypath/file_name, '\n')
         
-        soundArr = run_sound_predict(mypath/file_name)
-        soundArr = list(set(soundArr))
-        
-        print(soundArr)
+        record = run_sound_predict(mypath/file_name, data.get('firebaseToken'))
         os.remove(mypath/file_name)
-        
-        soundStr = ""
-        index = 0
-        for ele in soundArr:
-            if index == len(soundArr) - 1:
-                soundStr += ele
-            else:
-                soundStr += ele + ', '
-            index = index + 1
-        
-        record = getLastestRecord(data.get('firebaseToken'))
         
         avg_heartbeat = record[0]
         date_time = record[1]
@@ -138,21 +82,11 @@ class SoundDataAPI(APIView):
         latitude = record[3]
         longitude = record[4]
         deviceId = record[5]
-        userId = record[6]
-        # print(soundArr, stress_level, avg_heartbeat, date_time)
-        # else:
-        stress_level_str = ''
-        if stress_level == 3:
-            stress_level_str = "High"
-        elif stress_level > 2:
-            stress_level_str = "Medium"
-        elif stress_level >= 1:
-            stress_level_str = "Low"
-        if len(soundStr) > 0:
-            prediction = "Stress level " + stress_level_str + ". In audio has: " + soundStr + '.'
-        else:
-            prediction = "Stress level " + stress_level_str + ". No dangerous predicted in audio."
-        healthData = {
+        prediction = record[6]
+        
+        # print(prediction)
+        
+        healthData2 = {
             "user_id": "01hw37jjx5c74az9e786k50nvc",
             "stress_level": stress_level,
             "datetime": date_time,
@@ -163,12 +97,25 @@ class SoundDataAPI(APIView):
             "prediction": prediction,
             "step_count": 0,
         }
-        print(prediction)
-        print(healthData)
-        mobileResponse = requests.post('http://222.252.10.203:32311/v1/stressdata', data = healthData)
-        # print(mobileResponse)
-        print (mobileResponse.content)
-        # mobileResponse.text
+        # print(healthData2)
+        send_to_stresswatch2(healthData2, False)
+        
+        healthData3 = {
+            "client_secret": "N1rB1JetZs9IEzP",
+            "grant_type": "password",
+            "client_id": "stress_watch_1_test",
+            "smartWatchId": deviceId,
+            "stressLevel": stress_level,
+            "datetime": date_time,
+            "latitude": latitude,
+            "longitude": longitude,
+            "averageHeartRate": avg_heartbeat,
+            "prediction": prediction,
+            "stepCount": 0,
+            "soundFile": file,
+        }
+        send_to_stresswatch3(healthData3, False)
+        
         response = {
             "success": "true"
         }

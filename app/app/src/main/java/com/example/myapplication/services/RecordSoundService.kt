@@ -2,6 +2,7 @@ package com.example.myapplication.services
 
 import android.annotation.SuppressLint
 import android.content.Context
+import android.location.Location
 import android.media.AudioFormat
 import android.media.AudioRecord
 import android.media.MediaRecorder
@@ -12,6 +13,9 @@ import androidx.work.Worker
 import androidx.work.WorkerParameters
 import com.example.myapplication.firebase.MyFirebaseInstanceIDService
 import com.example.myapplication.utils.data.GSonRequest
+import com.google.android.gms.location.LocationServices
+import com.google.android.gms.location.Priority
+import com.google.android.gms.tasks.CancellationTokenSource
 import com.google.android.gms.tasks.OnCompleteListener
 import com.google.firebase.messaging.FirebaseMessaging
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
@@ -81,36 +85,58 @@ class RecordSoundService(context: Context, params: WorkerParameters) : Worker(co
         }, RECORD_TIME)
     }
 
-    @SuppressLint("RestrictedApi")
+    @SuppressLint("RestrictedApi", "MissingPermission")
     fun sendData() {
-        FirebaseMessaging.getInstance().token.addOnCompleteListener(OnCompleteListener { task ->
-            if (!task.isSuccessful) {
-                Log.w(MyFirebaseInstanceIDService.TAG, "Fetching FCM registration token failed", task.exception)
-                return@OnCompleteListener
+
+        val locationClient = LocationServices.getFusedLocationProviderClient(this.applicationContext)
+
+        val priority = Priority.PRIORITY_HIGH_ACCURACY
+        locationClient.getCurrentLocation(
+            priority,
+            CancellationTokenSource().token,
+        )
+            .addOnSuccessListener { location: Location? ->
+                run {
+                    val locationInfo =
+                        "Current location is \n" + "lat : ${location?.latitude}\n" +
+                                "long : ${location?.longitude}\n" + "fetched at ${System.currentTimeMillis()}"
+                    Log.d("Location", locationInfo)
+
+
+                    FirebaseMessaging.getInstance().token.addOnCompleteListener(OnCompleteListener { task ->
+                        if (!task.isSuccessful) {
+                            Log.w(MyFirebaseInstanceIDService.TAG, "Fetching FCM registration token failed", task.exception)
+                            return@OnCompleteListener
+                        }
+
+                        // Get new FCM registration token
+                        val token = task.result
+
+                        Log.i("info message", "Making post api...")
+
+                        val gsonRequest = GSonRequest()
+                        val file = File(outputFile)
+//            val MEDIA_TYPE_MARKDOWN = "text/x-markdown; charset=utf-8".toMediaType()
+                        val requestBody: RequestBody = MultipartBody.Builder()
+                            .setType(MultipartBody.FORM)
+                            .addFormDataPart("file",
+                                "file.wav",
+                                file.asRequestBody("media/type".toMediaTypeOrNull())
+                            )
+                            .addFormDataPart("latitude", location?.latitude.toString())
+                            .addFormDataPart("longitude", location?.longitude.toString())
+                            .addFormDataPart("firebaseToken", token)
+                            .build()
+
+                        gsonRequest.callPostAPI("/post/record/", requestBody)
+
+                        this.stop(0)
+
+                    })
+
+                }
             }
 
-            // Get new FCM registration token
-            val token = task.result
-
-            Log.i("info message", "Making post api...")
-
-            val gsonRequest = GSonRequest()
-            val file = File(outputFile)
-//            val MEDIA_TYPE_MARKDOWN = "text/x-markdown; charset=utf-8".toMediaType()
-            val requestBody: RequestBody = MultipartBody.Builder()
-                .setType(MultipartBody.FORM)
-                .addFormDataPart("file",
-                    "file.wav",
-                    file.asRequestBody("media/type".toMediaTypeOrNull())
-                )
-                .addFormDataPart("firebaseToken", token)
-                .build()
-
-            gsonRequest.callPostAPI("/post/record/", requestBody)
-
-            this.stop(0)
-
-        })
     }
 
     @SuppressLint("RestrictedApi")

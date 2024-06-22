@@ -61,6 +61,7 @@ class MainActivity : ComponentActivity() {
     var hasRecordPermission = false
     var hasCoastLocationPermission = false
     var hasFineLocationPermission = false
+    var loggedIn = false
 
     @SuppressLint("HardwareIds")
     @RequiresApi(Build.VERSION_CODES.TIRAMISU)
@@ -77,30 +78,36 @@ class MainActivity : ComponentActivity() {
         val recordButton = CustomButton(this, Manifest.permission.RECORD_AUDIO, 1002)
         val coastLocationButton = CustomButton(this, Manifest.permission.ACCESS_COARSE_LOCATION, 1003)
         val fineLocationButton = CustomButton(this, Manifest.permission.ACCESS_FINE_LOCATION, 1004)
+        val logoutButton = LogoutButton(this)
         val ll = LinearLayout(this).apply {
             addView(sensorButton,
                 LinearLayout.LayoutParams(
                     ViewGroup.LayoutParams.MATCH_PARENT,
-                    ViewGroup.LayoutParams.WRAP_CONTENT,
+                    75,
                     0f))
             addView(recordButton,
                 LinearLayout.LayoutParams(
                     ViewGroup.LayoutParams.MATCH_PARENT,
-                    ViewGroup.LayoutParams.WRAP_CONTENT,
+                    75,
                     0f))
             addView(coastLocationButton,
                 LinearLayout.LayoutParams(
                     ViewGroup.LayoutParams.MATCH_PARENT,
-                    ViewGroup.LayoutParams.WRAP_CONTENT,
+                    75,
                     0f))
             addView(fineLocationButton,
                 LinearLayout.LayoutParams(
                     ViewGroup.LayoutParams.MATCH_PARENT,
-                    ViewGroup.LayoutParams.WRAP_CONTENT,
+                    75,
+                    0f))
+            addView(logoutButton,
+                LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                    75,
                     0f))
         }
         ll.orientation = LinearLayout.VERTICAL
-        ll.setPadding(0, 10, 0, 10)
+        ll.setPadding(20, 20, 20, 20)
         setContentView(ll)
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
     }
@@ -167,12 +174,67 @@ class MainActivity : ComponentActivity() {
                             val annotationData = jsonAdapter.fromJson(response.body.string())
                             val check = annotationData?.login
                             if (check != null) {
+                                loggedIn = (check == "true")
                                 print(check)
                             }
                         }
                     }
                 })
             })
+    }
+
+    private fun logout(androidId: String) {
+        FirebaseMessaging.getInstance().getToken()
+            .addOnCompleteListener(OnCompleteListener<String?> { task ->
+                if (!task.isSuccessful) {
+                    Log.w(TAG, "FCM registration token failed", task.exception)
+                    return@OnCompleteListener
+                }
+
+                // Get new FCM registration token
+                val token = task.result
+
+                // Log and toast
+                val firebaseToken = token
+                Log.d(TAG, firebaseToken)
+
+                val apiBaseUrl = "https://intent-alien-crisp.ngrok-free.app/api"
+                val client = OkHttpClient()
+
+                val moshi = Moshi.Builder()
+                    .addLast(KotlinJsonAdapterFactory()).build()
+
+                val jsonAdapter: JsonAdapter<CheckDeviceResponse> =
+                    moshi.adapter(CheckDeviceResponse::class.java)
+                Log.d("ANDROID_ID", androidId)
+                val formBody = FormBody.Builder()
+                formBody.add("deviceId", androidId)
+                formBody.add("firebaseToken", firebaseToken.toString())
+                val body: FormBody = formBody.build()
+
+                val request = Request.Builder()
+                    .url("$apiBaseUrl/login/checkDevice/")
+                    .post(body)
+                    .build()
+                client.newCall(request).enqueue(object : Callback {
+                    override fun onFailure(call: Call, e: IOException) {
+                        e.printStackTrace()
+                    }
+
+                    override fun onResponse(call: Call, response: Response) {
+                        response.use {
+                            if (!response.isSuccessful) throw IOException("Unexpected code $response")
+
+                            val annotationData = jsonAdapter.fromJson(response.body.string())
+                            val check = annotationData?.login
+                            if (check != null) {
+                                print(check)
+                            }
+                        }
+                    }
+                })
+            })
+
     }
 
     @SuppressLint("HardwareIds")
@@ -201,8 +263,7 @@ class MainActivity : ComponentActivity() {
     internal inner class CustomButton(ctx: Context, permission: String, requestCode: Int)
         : Button(ctx) {
 
-        val permisstionStr: String = permission.split(".")[2]
-        var clicker: OnClickListener = OnClickListener {
+        private var clicker: OnClickListener = OnClickListener {
             val hasPermission = when(requestCode) {
                 1001 -> hasSensorPermission
                 1002 -> hasRecordPermission
@@ -214,16 +275,41 @@ class MainActivity : ComponentActivity() {
                 requestPermission(permission, requestCode)
             }
             text = when (hasPermission) {
-                true -> "Has $permisstionStr permission"
-                false -> "Request $permisstionStr permission"
+                true -> "Has permission"
+                false -> "Request permission"
             }
         }
         init {
-            text = "Check $permisstionStr permission"
-            textSize = 10F
+            text = "Check permission"
+            textSize = 8F
+            setPadding(2, 2, 2, 2)
             setOnClickListener(clicker)
         }
     }
+
+    internal inner class LogoutButton(ctx: Context)
+        : Button(ctx) {
+
+        @SuppressLint("HardwareIds")
+        private var clicker: OnClickListener = OnClickListener {
+            val deviceId = Settings.Secure.getString(contentResolver, Settings.Secure.ANDROID_ID)
+            if (loggedIn) {
+//                logout(deviceId)
+            } else {
+                checkDevice(deviceId)
+            }
+            text = when (loggedIn) {
+                true -> "Log out"
+                false -> "Log in"
+            }
+        }
+        init {
+            text = "Log in"
+            textSize = 8F
+            setOnClickListener(clicker)
+        }
+    }
+
 }
 
 @Composable

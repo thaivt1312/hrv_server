@@ -16,6 +16,40 @@ def load_sound_model():
     sound_model = YAMNet(weights=mypath/'server/sound_process/keras_yamnet/yamnet.h5')
     # run_sound_predict(mypath/'file.wav')
 
+def save_sound_prediction(predictions, firebaseToken, latitude, longitude):
+    print('\n', predictions, '\n')
+    # return predictions
+    soundArr = list(set(predictions))
+    
+    soundStr = ""
+    index = 0
+    for ele in soundArr:
+        if index == len(soundArr) - 1:
+            soundStr += ele
+        else:
+            soundStr += ele + ', '
+        index = index + 1
+    
+    record = getLastestRecord(firebaseToken)
+    
+    avg_heartbeat = record[0]
+    date_time = record[1]
+    # latitude = record[3]
+    # longitude = record[4]
+    deviceId = record[4]
+    # userId = record[5]
+    prediction = record[6]
+    recordId = record[7]
+        
+    if len(soundStr) > 0:
+        prediction = prediction + " In audio has: " + soundStr + '.'
+    else:
+        prediction = prediction + " No dangerous predicted in audio."
+
+    updatePrediction(recordId, prediction, latitude, longitude)
+    
+    return [avg_heartbeat, date_time, latitude, longitude, deviceId, prediction]
+
 def run_sound_predict(file, firebaseToken):
     RATE = params.SAMPLE_RATE
     WIN_SIZE_SEC = 0.975
@@ -39,40 +73,8 @@ def run_sound_predict(file, firebaseToken):
         prediction = sound_model.predict(np.expand_dims(data, 0))[0]
         # get the highest probability class and its name
         prediction = np.argmax(prediction)
+        print (prediction, yamnet_classes[prediction])
         check = prediction in plt_classes
         if check == True:
             predictions.append(yamnet_classes[prediction])
-
-    print('\n', predictions, '\n')
-    # return predictions
-    soundArr = list(set(predictions))
-    
-    soundStr = ""
-    index = 0
-    for ele in soundArr:
-        if index == len(soundArr) - 1:
-            soundStr += ele
-        else:
-            soundStr += ele + ', '
-        index = index + 1
-    
-    record = getLastestRecord(firebaseToken)
-    
-    avg_heartbeat = record[0]
-    date_time = record[1]
-    stress_level = record[2]
-    latitude = record[3]
-    longitude = record[4]
-    deviceId = record[5]
-    userId = record[6]
-    prediction = record[7]
-    recordId = record[8]
-        
-    if len(soundStr) > 0:
-        prediction = prediction + " In audio has: " + soundStr + '.'
-    else:
-        prediction = prediction + " No dangerous predicted in audio."
-
-    updatePrediction(recordId, prediction)
-    
-    return [avg_heartbeat, date_time, stress_level, latitude, longitude, deviceId, prediction]
+    return predictions

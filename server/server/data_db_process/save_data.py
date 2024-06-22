@@ -16,14 +16,14 @@ def updateFirebaseToken(deviceId, firebaseToken):
 def saveHeartRateData(params):
     mycursor = mydb.cursor()
     query = """INSERT INTO hr_data 
-        (hr_data, device_id, user_id, time, avg_heartbeat, stress_level, latitude, longitude, prediction) 
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)"""
+        (device_id, user_id, time, avg_heartbeat, latitude, longitude, prediction) 
+        VALUES (%s, %s, %s, %s, %s, %s, %s)"""
     mycursor.execute(query, params)
     mydb.commit()
     
-def updatePrediction(recordId, prediction):
+def updatePrediction(recordId, prediction, latitude, longitude):
     mycursor = mydb.cursor()
-    query = """UPDATE hr_data SET prediction=%s WHERE id=%s"""
-    mycursor.execute(query, [prediction, recordId])
+    query = """UPDATE hr_data SET prediction=%s, latitude=%s, longitude=%s WHERE id=%s"""
+    mycursor.execute(query, [prediction, latitude, longitude, recordId])
     mydb.commit()
     

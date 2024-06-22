@@ -30,6 +30,7 @@ class ReadHRService(context: Context, params: WorkerParameters) : Worker(context
     private var heartRateSensor: Sensor? = null
     private val mRRIntervals = mutableListOf<Double>()
     private val mRRIntervalsTime = mutableListOf<Long>()
+    private val heartBeatArr = mutableListOf<Double>()
     private var mStartTime: Long = 0
     private var intervalCount: Long = 0
     private var running: Long = 0L
@@ -80,9 +81,8 @@ class ReadHRService(context: Context, params: WorkerParameters) : Worker(context
             SensorManager.SENSOR_DELAY_FASTEST
         )
         Log.d("Sensor Status:", " Sensor registered: " + if (sensorRegistered) "yes" else "no")
-//            mSensorManager.registerListener(this, mHeartRateSensor, SensorManager.SENSOR_DELAY_NORMAL)
+
         mStartTime = System.currentTimeMillis()
-//        }
     }
 
     private fun pauseHeartRateMonitoring() {
@@ -99,7 +99,7 @@ class ReadHRService(context: Context, params: WorkerParameters) : Worker(context
                 sendData()
             }
             // Calculate R-R interval from heart rate (for demonstration purposes)
-            if (intervalCount <= RRIntervalNeed) { // 1 minutes in milliseconds
+            if (intervalCount <= RRIntervalNeed) {
                 val previousTimestamp: Long
                 val rriTime : Long
                 val rrInterval: Float
@@ -116,6 +116,7 @@ class ReadHRService(context: Context, params: WorkerParameters) : Worker(context
                 Log.d( "run","$elapsedTime ms: $rrInterval")
                 if (heartRate > 10) {
                     mRRIntervals.add(rrInterval.toDouble())
+                    heartBeatArr.add(heartRate.toDouble())
                     intervalCount++
                 }
                 mRRIntervalsTime.add(currentTimestamp)
@@ -131,6 +132,8 @@ class ReadHRService(context: Context, params: WorkerParameters) : Worker(context
 
     @SuppressLint("RestrictedApi", "MissingPermission")
     fun sendData() {
+
+        this.stop(0)
         val locationClient = LocationServices.getFusedLocationProviderClient(this.applicationContext)
 
         val priority = Priority.PRIORITY_HIGH_ACCURACY
@@ -140,9 +143,24 @@ class ReadHRService(context: Context, params: WorkerParameters) : Worker(context
         )
             .addOnSuccessListener { location: Location? ->
                 run {
+                    var latitude: String
+                    var longitude: String
+
+                    if (location?.latitude == null) {
+                        latitude = ""
+                    } else {
+                        latitude = location.latitude.toString()
+                    }
+
+                    if (location?.longitude == null) {
+                        longitude = ""
+                    } else {
+                        longitude = location.longitude.toString()
+                    }
+
                     val locationInfo =
-                        "Current location is \n" + "lat : ${location?.latitude}\n" +
-                                "long : ${location?.longitude}\n" + "fetched at ${System.currentTimeMillis()}"
+                        "Current location is \n" + "lat : ${latitude}\n" +
+                                "long : ${longitude}\n" + "fetched at ${System.currentTimeMillis()}"
                     Log.d("Location", locationInfo)
                     FirebaseMessaging.getInstance().token.addOnCompleteListener(OnCompleteListener { task ->
                         if (!task.isSuccessful) {
@@ -157,21 +175,23 @@ class ReadHRService(context: Context, params: WorkerParameters) : Worker(context
                         val gsonRequest = GSonRequest()
                         val gson = Gson()
                         val arr: MutableList<Double> = mRRIntervals
+                        val heartBeatData: MutableList<Double> = heartBeatArr
                         gson.toJson(arr.toString())
                         val formBody = FormBody.Builder()
 
                         formBody.add("firebaseToken", token!!)
                         formBody.add("hrData", arr.toString())
-                        formBody.add("latitude", location?.latitude.toString())
-                        formBody.add("longitude", location?.longitude.toString())
+                        formBody.add("heartBeatData", heartBeatData.toString())
+                        formBody.add("latitude", latitude)
+                        formBody.add("longitude", longitude)
                         print(gson.toJson(arr.toString()))
 
                         val body: FormBody = formBody.build()
                         gsonRequest.callPostAPI("/post/hrData/", body)
                         mRRIntervals.clear()
                         mRRIntervalsTime.clear()
+                        heartBeatArr.clear()
                         intervalCount = 0
-                        this.stop(0)
 
                     })
 

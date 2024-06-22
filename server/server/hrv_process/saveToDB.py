@@ -2,11 +2,10 @@ from config.FCMManage import sendPush
 from .index import setInterval
 
 from datetime import datetime, timedelta
-from .data_process import prepare_model_data, run_predict1, run_predict2, run_predict3, run_predict4
+# from .data_process import prepare_model_data, run_predict1, run_predict2, run_predict3, run_predict4
 from .index import send_to_stresswatch2, send_to_stresswatch3
 from ..data_db_process.get_data import getDeviceInfo, getUserInfo, getLastestRecord
 from ..data_db_process.save_data import insertNewUser, updateFirebaseToken, saveHeartRateData
-import math
 
 threadArr = []
 intervalTime = 50
@@ -33,22 +32,23 @@ def checkDeviceId(deviceId,firebaseToken):
     
             avg_heartbeat = record[0]
             date_time = record[1]
-            stress_level = record[2]
-            latitude = record[3]
-            longitude = record[4]
-            deviceId = record[5]
-            prediction = record[7]
-            date_time1 = datetime.strptime(record[1], "%Y-%m-%d %H:%M:%S")
-            userId = record[6]
+            latitude = record[2]
+            longitude = record[3]
+            deviceId = record[4]
+            prediction = record[6]
+            date_time1 = datetime.strptime(date_time, "%Y-%m-%d %H:%M:%S")
+            userId = record[5]
             (curIndex, check) = findThreadIndex(userId)
             if check:
                 if threadArr[curIndex]['isNew'] == False:
                     if abs(datetime.now() - date_time1) > timedelta(minutes=2):
                         stopInterval(userId)
+                        
+                        print ("\nSmart watch has been disconnected, last prection is: " + prediction + ", at " + date_time + ".\n")
             
                         healthData2 = {
                             "user_id": "01hw37jjx5c74az9e786k50nvc",
-                            "stress_level": stress_level,
+                            "stress_level": 0,
                             "datetime": date_time,
                             "latitude": latitude,
                             "longitude": longitude,
@@ -63,7 +63,7 @@ def checkDeviceId(deviceId,firebaseToken):
                             "grant_type": "password",
                             "client_id": "stress_watch_1_test",
                             "smartWatchId": deviceId,
-                            "stressLevel": stress_level,
+                            "stressLevel": 0,
                             "datetime": date_time,
                             "latitude": latitude,
                             "longitude": longitude,
@@ -72,8 +72,8 @@ def checkDeviceId(deviceId,firebaseToken):
                             "stepCount": 0,
                             "soundFile": 'No file available',
                         }
-                        send_to_stresswatch2(healthData2)
-                        send_to_stresswatch3(healthData3)
+                        # send_to_stresswatch2(healthData2)
+                        # send_to_stresswatch3(healthData3)
                         return
         sendPush('get', 'getHRData', [firebaseToken])
     
@@ -113,7 +113,8 @@ def checkDeviceId(deviceId,firebaseToken):
         return "true"
         
 def saveHRData(data):
-    hrdata = data.get('hrData')
+    # hrdata = data.get('hrData')
+    heartBeatData = data.get('heartBeatData')
     firebaseToken = data.get('firebaseToken')
     latitude = data.get('latitude')
     longitude = data.get('longitude')
@@ -123,46 +124,36 @@ def saveHRData(data):
     userId = get[1]
     avgHeartBeat = 0
     hrsum = 0
-    string = hrdata[1:len(hrdata)-1]
+    string = heartBeatData[1:len(heartBeatData)-1]
     if (len(string)):
         arr = string.split(", ")
         for x in arr:
             y = float(x)
-            hrsum += 60000.0 / y
+            hrsum += y
         avgHeartBeat = hrsum/len(arr)
+    avgHeartBeat = round(avgHeartBeat, 2)
+    sendPush('get', 'getRecord', [firebaseToken])
+    if avgHeartBeat > 0:
+        prediction = "Average heart beat is " + str(avgHeartBeat) + "."
+    else:
+        prediction = "Cannot get heart beat data."
 
-        data = prepare_model_data(arr)
+    if latitude == "" or longitude == "":
+        prediction = prediction + " Cannot get position data."
+    else:
+        latitude = float(latitude)
+        longitude = float(longitude)
         
-        res1 = run_predict1(data)
-        res2 = run_predict2(data)
-        res3 = run_predict3(data)
-        # res4 = run_predict4(data)
-        res = sum([res1, res2, res3]) / 3
-        print('\n', res1, res2, res3, res, '\n')
-        if (res >= 1):
-            sendPush('get', 'getRecord', [firebaseToken])
-            
-        stress_level = math.floor(res)
-        stress_level_str = ''
-        if stress_level == 3:
-            stress_level_str = "High"
-        elif stress_level > 2:
-            stress_level_str = "Medium"
-        elif stress_level >= 1:
-            stress_level_str = "Low"
-        prediction = "Stress level " + str(stress_level_str) + ", average heart beat is " + str(avgHeartBeat) + "."
-        params=(
-            str(hrdata), 
-            deviceId,
-            userId, 
-            datetime.now(), 
-            avgHeartBeat,
-            math.floor(res),
-            float(latitude),
-            float(longitude),
-            prediction
-        )
-        saveHeartRateData(params)
-        (curIndex, check) = findThreadIndex(userId)
-        if check:
-            threadArr[curIndex]['isNew'] = False
+    params=(
+        deviceId,
+        userId, 
+        datetime.now(), 
+        avgHeartBeat,
+        latitude,
+        longitude,
+        prediction
+    )
+    saveHeartRateData(params)
+    (curIndex, check) = findThreadIndex(userId)
+    if check:
+        threadArr[curIndex]['isNew'] = False

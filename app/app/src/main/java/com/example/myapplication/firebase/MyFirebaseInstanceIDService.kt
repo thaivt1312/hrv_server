@@ -1,7 +1,6 @@
 package com.example.myapplication.firebase
 
 import android.annotation.SuppressLint
-import android.provider.Settings.Secure
 import android.util.Log
 import androidx.work.BackoffPolicy
 import androidx.work.Constraints
@@ -9,17 +8,11 @@ import androidx.work.ExistingWorkPolicy
 import androidx.work.NetworkType
 import androidx.work.OneTimeWorkRequest
 import androidx.work.OneTimeWorkRequestBuilder
-import androidx.work.PeriodicWorkRequest
-import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import com.example.myapplication.services.ReadHRService
 import com.example.myapplication.services.RecordSoundService
-import com.example.myapplication.utils.data.GSonRequest
-import com.google.android.gms.tasks.Task
-import com.google.firebase.Firebase
 import com.google.firebase.messaging.FirebaseMessagingService
 import com.google.firebase.messaging.RemoteMessage
-import com.google.firebase.messaging.messaging
 import java.util.concurrent.TimeUnit
 
 
@@ -43,7 +36,6 @@ class MyFirebaseInstanceIDService : FirebaseMessagingService() {
     }
 
     override fun onMessageReceived(remoteMessage: RemoteMessage) {
-        // ...
 
         // TODO(developer): Handle FCM messages here.
         // Not getting messages here? See why this may be: https://goo.gl/39bRNJ

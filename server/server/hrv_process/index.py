@@ -17,21 +17,6 @@ def loadHRModel(filename):
     model = pickle.load(open(filepath, 'rb'))
     print('done HR model')
     return model
-def loadSoundModel(filename):
-    mypath = Path().absolute()
-    print(mypath/filename)
-    filepath = mypath/filename
-
-    model = load_model(filepath, custom_objects={
-        'STFT':STFT(n_fft=1024, hop_length=512),
-        'Magnitude':Magnitude,
-        'ApplyFilterbank':ApplyFilterbank,
-        'MagnitudeToDecibel':MagnitudeToDecibel}
-    )
-    print('done sound model')
-    return model
-    
-
 def send_to_stresswatch2(healthData, isFakeData = False):
     def action():
         fakeData1 = {

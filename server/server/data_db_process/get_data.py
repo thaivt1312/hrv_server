@@ -24,19 +24,19 @@ def getLastestRecord(firebaseToken):
     get = getUserInfo(firebaseToken)
     deviceId = get[0]
     userId = get[1]
-    query=f"SELECT avg_heartbeat, time, stress_level, latitude, longitude, user_id, prediction, id FROM hr_data WHERE user_id = '{userId}' ORDER BY time DESC LIMIT 1 "
+    query=f"SELECT id, avg_heartbeat, time, latitude, longitude, prediction FROM hr_data WHERE user_id = '{userId}' ORDER BY time DESC LIMIT 1 "
     mycursor.execute(query)
     res = mycursor.fetchone()
     mycursor.reset()
     if res:
-        avg_heartbeat = res[0]
-        date_time = res[1].strftime("%Y-%m-%d %H:%M:%S")
-        stress_level = res[2]
+        recordId = res[0]
+        avg_heartbeat = res[1]
+        date_time = res[2].strftime("%Y-%m-%d %H:%M:%S")
+        # stress_level = res[2]
         latitude = res[3]
         longitude = res[4]
-        prediction = res[6]
-        recordId = res[7]
-        return [avg_heartbeat, date_time, stress_level, latitude, longitude, deviceId, userId, prediction, recordId]
+        prediction = res[5]
+        return [avg_heartbeat, date_time, latitude, longitude, deviceId, userId, prediction, recordId]
     else:
         return []
     

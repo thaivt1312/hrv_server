@@ -6,10 +6,12 @@ from pathlib import Path
 import os
 
 from .hrv_process.index import send_to_stresswatch2, send_to_stresswatch3
-from .hrv_process.saveToDB import checkDeviceId, saveHRData
+from .hrv_process.saveToDB import saveHRData
 # from .hrv_process.data_process import run_load_model
 
 from .sound_process.index import load_sound_model, run_sound_predict, save_sound_prediction
+
+from .account_manage.index import checkDeviceId
 
 # Create your views here.
 threadArr = []

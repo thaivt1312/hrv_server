@@ -1,8 +1,6 @@
 import time, threading
 import pickle
 from pathlib import Path
-from tensorflow.keras.models import load_model
-from kapre.time_frequency import STFT, Magnitude, ApplyFilterbank, MagnitudeToDecibel
 from datetime import datetime
 import requests
 

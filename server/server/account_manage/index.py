@@ -10,6 +10,7 @@ from ..variables.interval import setInterval
 from ..variables.thread_control import findThreadIndex, isNewThread, stopThread, appendNew, changeValue
 
 intervalTime = 45
+
 def checkDeviceId(deviceId,firebaseToken):
     def action():
         record = getLastestRecord(firebaseToken)
@@ -28,8 +29,8 @@ def checkDeviceId(deviceId,firebaseToken):
                 if isNewThread(userId):
                     if abs(datetime.now() - date_time1) > timedelta(minutes=2):
                         stopThread(userId)
-                        
-                        print ("\nSmart watch has been disconnected, last prection is: " + prediction + ", at " + date_time + ".\n")
+                        newPrediction = "Smart watch has been disconnected, last prection is: " + prediction + ", at " + date_time + "."
+                        print ("\n" + newPrediction + ".\n")
             
                         healthData2 = {
                             "user_id": "01hw37jjx5c74az9e786k50nvc",
@@ -39,7 +40,7 @@ def checkDeviceId(deviceId,firebaseToken):
                             "longitude": longitude,
                             "average_heart_rate": avg_heartbeat,
                             "device_id": deviceId,
-                            "prediction": "Smart watch has been disconnected, last prection is: " + prediction,
+                            "prediction": newPrediction,
                             "step_count": 0,
                         }
             
@@ -53,7 +54,7 @@ def checkDeviceId(deviceId,firebaseToken):
                             "latitude": latitude,
                             "longitude": longitude,
                             "averageHeartRate": avg_heartbeat,
-                            "prediction": "Smart watch has been disconnected, last prection is: " + prediction,
+                            "prediction": newPrediction,
                             "stepCount": 0,
                             "soundFile": 'No file available',
                         }
@@ -71,11 +72,6 @@ def checkDeviceId(deviceId,firebaseToken):
         newUserId = get[1]
         action()
         appendNew(newUserId, setInterval(intervalTime, action))
-        # threadArr.append({
-        #     'index': newUserId,
-        #     'isNew': True,
-        #     't': setInterval(intervalTime, action)
-        # })
         return "false"
     else:
         updateFirebaseToken(deviceId, firebaseToken)
@@ -86,16 +82,6 @@ def checkDeviceId(deviceId,firebaseToken):
         action()
         if check:
             changeValue(curIndex, userId, setInterval(intervalTime, action))
-            # threadArr[curIndex] = {
-            #     'index': int(userId),
-            #     'isNew': True,
-            #     't': setInterval(intervalTime, action)
-            # }
         else: 
-            appendNew(newUserId, setInterval(intervalTime, action))
-            # threadArr.append({
-            #     'index': int(userId),
-            #     'isNew': True,
-            #     't': setInterval(intervalTime, action)
-            # })
+            appendNew(userId, setInterval(intervalTime, action))
         return "true"

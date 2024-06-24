@@ -12,6 +12,7 @@ from .hrv_process.saveToDB import saveHRData
 from .sound_process.index import load_sound_model, run_sound_predict, save_sound_prediction
 
 from .account_manage.index import checkDeviceId
+from .data_db_process.account_control import checkLogin, generate_password
 
 # Create your views here.
 threadArr = []
@@ -32,6 +33,18 @@ class checkDevice(APIView):
         }
         return Response(response, status=status.HTTP_200_OK)
 
+class LoginApi(APIView):
+    def post(self, request, *args, **kwargs):
+        data = request.data
+        print(data)
+        res = checkLogin(data.get('username'), data.get('password'))
+        a = generate_password()
+        print(res)
+        response = {
+            "result": res,
+            "hash": a
+        }
+        return Response(response, status=status.HTTP_200_OK)
 class LogoutApi(APIView):
     def post(self, request, *args, **kwargs):
         index = request.data

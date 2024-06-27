@@ -21,6 +21,10 @@ load_sound_model()
     
 # send_to_stresswatch3()
 
+class deviceApi(APIView):
+    def post(self, request, *args, **kwargs):
+        data = request.data
+    
 class checkDevice(APIView):
     def post(self, request, *args, **kwargs):
         data = request.data

@@ -5,8 +5,8 @@ from .keras_yamnet.yamnet import YAMNet, class_names
 from .keras_yamnet.preprocessing import preprocess_input
 from pathlib import Path
 
-from ..data_db_process.get_data import getLastestRecord
-from ..data_db_process.save_data import updatePrediction
+from ..devices_manage.get_data import getLastestRecord
+from ..devices_manage.save_data import updatePrediction
 
 global sound_model
 

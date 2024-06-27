@@ -4,8 +4,8 @@ from .index import setInterval
 from datetime import datetime, timedelta
 # from .data_process import prepare_model_data, run_predict1, run_predict2, run_predict3, run_predict4
 from .index import send_to_stresswatch2, send_to_stresswatch3
-from ..data_db_process.get_data import getDeviceInfo, getUserInfo, getLastestRecord
-from ..data_db_process.save_data import insertNewUser, updateFirebaseToken, saveHeartRateData
+from ..devices_manage.get_data import getDeviceInfo, getUserInfo, getLastestRecord
+from ..devices_manage.save_data import insertNewUser, updateFirebaseToken, saveHeartRateData
 
 threadArr = []
 intervalTime = 50

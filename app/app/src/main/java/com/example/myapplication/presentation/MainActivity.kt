@@ -8,17 +8,13 @@ package com.example.myapplication.presentation
 
 import android.Manifest
 import android.annotation.SuppressLint
-import android.content.Context
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
 import android.util.Log
-import android.view.View.OnClickListener
-import android.view.ViewGroup
 import android.view.WindowManager
-import android.widget.Button
-import android.widget.LinearLayout
 import androidx.activity.ComponentActivity
 import androidx.annotation.RequiresApi
 import androidx.compose.foundation.background
@@ -33,12 +29,12 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Devices
 import androidx.compose.ui.tooling.preview.Preview
-import androidx.core.app.ActivityCompat.requestPermissions
 import androidx.core.content.ContextCompat
 import androidx.wear.compose.material.MaterialTheme
 import androidx.wear.compose.material.Text
 import com.example.myapplication.R
 import com.example.myapplication.presentation.theme.MyApplicationTheme
+import com.example.myapplication.utils.data.APIResponse
 import com.example.myapplication.utils.data.CheckDeviceResponse
 import com.google.android.gms.tasks.OnCompleteListener
 import com.google.firebase.messaging.FirebaseMessaging
@@ -57,58 +53,52 @@ import java.io.IOException
 class MainActivity : ComponentActivity() {
 
     private val TAG = "____Main___"
-    var hasSensorPermission = false
-    var hasRecordPermission = false
-    var hasCoastLocationPermission = false
-    var hasFineLocationPermission = false
+    private var hasSensorPermission = false
+    private var hasRecordPermission = false
+    private var hasCoastLocationPermission = false
+    private var hasFineLocationPermission = false
     var loggedIn = false
+    var isActived = false
 
-    @SuppressLint("HardwareIds")
+    @SuppressLint("HardwareIds", "WearRecents")
     @RequiresApi(Build.VERSION_CODES.TIRAMISU)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        setContentView(R.layout.running)
         hasSensorPermission = checkPermission(Manifest.permission.BODY_SENSORS)
         hasRecordPermission = checkPermission(Manifest.permission.RECORD_AUDIO)
         hasCoastLocationPermission = checkPermission(Manifest.permission.ACCESS_COARSE_LOCATION)
         hasFineLocationPermission = checkPermission(Manifest.permission.ACCESS_FINE_LOCATION)
         if (hasSensorPermission && hasRecordPermission && hasCoastLocationPermission && hasFineLocationPermission) {
             checkDevice(Settings.Secure.getString(contentResolver, Settings.Secure.ANDROID_ID))
+//            val myIntent = Intent(this, ActiveDeviceActivity::class.java)
+//            myIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
+//            finishAffinity()
+//            startActivity(myIntent)
+//            val tv = TextView(this).apply {
+//                id = View.generateViewId()
+//                LinearLayout.LayoutParams(
+//                    ViewGroup.LayoutParams.MATCH_PARENT,
+//                    75,
+//                    0f)
+//                text = "Has all permissions"
+//                textSize = 15f
+//            }
+//
+//            val ll = LinearLayout(this).apply {
+//                id = View.generateViewId()
+//                addView(tv)
+//                gravity = Gravity.CENTER
+//            }
+//            ll.orientation = LinearLayout.VERTICAL
+//            ll.setPadding(70, 50, 70, 50)
+//            setContentView(ll)
+        } else {
+            val myIntent = Intent(this, PermissionRequestActivity::class.java)
+            myIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
+            finishAffinity()
+            startActivity(myIntent)
         }
-        val sensorButton = CustomButton(this, Manifest.permission.BODY_SENSORS, 1001)
-        val recordButton = CustomButton(this, Manifest.permission.RECORD_AUDIO, 1002)
-        val coastLocationButton = CustomButton(this, Manifest.permission.ACCESS_COARSE_LOCATION, 1003)
-        val fineLocationButton = CustomButton(this, Manifest.permission.ACCESS_FINE_LOCATION, 1004)
-        val logoutButton = LogoutButton(this)
-        val ll = LinearLayout(this).apply {
-            addView(sensorButton,
-                LinearLayout.LayoutParams(
-                    ViewGroup.LayoutParams.MATCH_PARENT,
-                    75,
-                    0f))
-            addView(recordButton,
-                LinearLayout.LayoutParams(
-                    ViewGroup.LayoutParams.MATCH_PARENT,
-                    75,
-                    0f))
-            addView(coastLocationButton,
-                LinearLayout.LayoutParams(
-                    ViewGroup.LayoutParams.MATCH_PARENT,
-                    75,
-                    0f))
-            addView(fineLocationButton,
-                LinearLayout.LayoutParams(
-                    ViewGroup.LayoutParams.MATCH_PARENT,
-                    75,
-                    0f))
-            addView(logoutButton,
-                LinearLayout.LayoutParams(
-                    ViewGroup.LayoutParams.MATCH_PARENT,
-                    75,
-                    0f))
-        }
-        ll.orientation = LinearLayout.VERTICAL
-        ll.setPadding(20, 20, 20, 20)
-        setContentView(ll)
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
     }
 
@@ -118,14 +108,6 @@ class MainActivity : ComponentActivity() {
         // Runtime permission ------------
         // Permission has not been granted, so request it
         return ContextCompat.checkSelfPermission(this, permission) == PackageManager.PERMISSION_GRANTED
-    }
-
-    private fun requestPermission(permission: String, requestCode: Int) {
-        requestPermissions(
-            this,
-            arrayOf(permission),
-            requestCode
-        )
     }
 
 
@@ -141,8 +123,7 @@ class MainActivity : ComponentActivity() {
                 val token = task.result
 
                 // Log and toast
-                val firebaseToken = token
-                Log.d(TAG, firebaseToken)
+                Log.d(TAG, token)
 
                 val apiBaseUrl = "https://intent-alien-crisp.ngrok-free.app/api"
                 val client = OkHttpClient()
@@ -150,16 +131,16 @@ class MainActivity : ComponentActivity() {
                 val moshi = Moshi.Builder()
                     .addLast(KotlinJsonAdapterFactory()).build()
 
-                val jsonAdapter: JsonAdapter<CheckDeviceResponse> =
-                    moshi.adapter(CheckDeviceResponse::class.java)
+                val jsonAdapter: JsonAdapter<APIResponse> =
+                    moshi.adapter(APIResponse::class.java)
                 Log.d("ANDROID_ID", androidId)
                 val formBody = FormBody.Builder()
                 formBody.add("deviceId", androidId)
-                formBody.add("firebaseToken", firebaseToken.toString())
+                formBody.add("firebaseToken", token.toString())
                 val body: FormBody = formBody.build()
 
                 val request = Request.Builder()
-                    .url("$apiBaseUrl/login/checkDevice/")
+                    .url("$apiBaseUrl/checkDevice/")
                     .post(body)
                     .build()
                 client.newCall(request).enqueue(object : Callback {
@@ -172,11 +153,11 @@ class MainActivity : ComponentActivity() {
                             if (!response.isSuccessful) throw IOException("Unexpected code $response")
 
                             val annotationData = jsonAdapter.fromJson(response.body.string())
-                            val check = annotationData?.login
-                            if (check != null) {
-                                loggedIn = (check == "true")
-                                print(check)
-                            }
+                            val check = annotationData?.msg
+//                            if (check != null) {
+                            loggedIn = (check == "actived")
+                            print(check)
+//                            }
                         }
                     }
                 })
@@ -235,79 +216,6 @@ class MainActivity : ComponentActivity() {
                 })
             })
 
-    }
-
-    @SuppressLint("HardwareIds")
-    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<String>, grantResults: IntArray) {
-        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-        if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-            // Permission granted
-            if (requestCode == 1001) {
-                this.hasSensorPermission = true
-            } else if (requestCode == 1002) {
-                this.hasRecordPermission = true
-            } else if (requestCode == 1003) {
-                this.hasCoastLocationPermission = true
-            }else if (requestCode == 1004) {
-                this.hasFineLocationPermission = true
-            }
-            if (hasSensorPermission && hasRecordPermission && hasCoastLocationPermission && hasFineLocationPermission) {
-                checkDevice(Settings.Secure.getString(contentResolver, Settings.Secure.ANDROID_ID))
-            }
-        } else {
-
-        }
-    }
-
-//    @SuppressLint("AppCompatCustomView")
-    internal inner class CustomButton(ctx: Context, permission: String, requestCode: Int)
-        : Button(ctx) {
-
-        private var clicker: OnClickListener = OnClickListener {
-            val hasPermission = when(requestCode) {
-                1001 -> hasSensorPermission
-                1002 -> hasRecordPermission
-                1003 -> hasCoastLocationPermission
-                1004 -> hasFineLocationPermission
-                else -> {false}
-            }
-            if (!hasPermission) {
-                requestPermission(permission, requestCode)
-            }
-            text = when (hasPermission) {
-                true -> "Has permission"
-                false -> "Request permission"
-            }
-        }
-        init {
-            text = "Check permission"
-            textSize = 8F
-            setPadding(2, 2, 2, 2)
-            setOnClickListener(clicker)
-        }
-    }
-
-    internal inner class LogoutButton(ctx: Context)
-        : Button(ctx) {
-
-        @SuppressLint("HardwareIds")
-        private var clicker: OnClickListener = OnClickListener {
-            val deviceId = Settings.Secure.getString(contentResolver, Settings.Secure.ANDROID_ID)
-            if (loggedIn) {
-//                logout(deviceId)
-            } else {
-                checkDevice(deviceId)
-            }
-            text = when (loggedIn) {
-                true -> "Log out"
-                false -> "Log in"
-            }
-        }
-        init {
-            text = "Log in"
-            textSize = 8F
-            setOnClickListener(clicker)
-        }
     }
 
 }

@@ -3,8 +3,8 @@ from datetime import datetime, timedelta
 
 from config.FCMManage import sendPush
 
-from ..data_db_process.get_data import getDeviceInfo, getUserInfo, getLastestRecord
-from ..data_db_process.save_data import insertNewUser, updateFirebaseToken
+from ..devices_manage.get_data import getDeviceInfo, getUserInfo, getLastestRecord
+from ..devices_manage.save_data import insertNewUser, updateFirebaseToken
 
 from ..variables.interval import setInterval
 from ..variables.thread_control import findThreadIndex, isNewThread, stopThread, appendNew, changeValue
